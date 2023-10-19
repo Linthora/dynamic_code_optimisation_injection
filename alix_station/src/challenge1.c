@@ -34,9 +34,34 @@ int main(int argc, char *argv[]) {
 
     pid_t pid = atoi(argv[1]);
 
+    // add ptrace attach 0000000000401196
+
+
     ptrace(PTRACE_ATTACH, pid, NULL, NULL);
+
 
     printf("I am the parent process\n");
 
+    long addr = 0x0000000000401196;
+
+
+
+
+    // insert a breakpoint
+    long data = ptrace(PTRACE_PEEKDATA, pid, addr, NULL); // get the instruction
+
+
+    long replace_with = (data & 0xFFFFFFFFFFFFFF00) | 0xCC; // what to replace with
+
+    ptrace(PTRACE_POKEDATA, pid, addr, replace_with); // replace the instruction
+
+
+
+
+    // ptrace(PTRACE_DETACH, pid, NULL, NULL);
+
     return EXIT_SUCCESS;
 }
+
+
+// étape 1, faire un trap dans le processus fils

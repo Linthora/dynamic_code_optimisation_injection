@@ -30,7 +30,7 @@ void answer() {
 int main(int argc, char *argv[]) {
 
     long long nb_iter = __LONG_LONG_MAX__;
-    
+
     if(argc > 1) {
         nb_iter = atoi(argv[1]);
     }
