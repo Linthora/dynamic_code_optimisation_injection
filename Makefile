@@ -1,6 +1,9 @@
 # rm and create build directory and then compile an executable from src_main/prog.c
 
 # Variables
+
+# no optimization, debugging info, all warnings
+
 CC = gcc
 CFLAGS = -Wall -Wextra -Werror -pedantic -std=c99 -g
 SRC = src_main/prog.c
