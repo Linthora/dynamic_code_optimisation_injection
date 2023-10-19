@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-
-
+#include <sys/prctl.h>
 
 
 // à opti en live en speed_ext
@@ -26,17 +25,16 @@ void answer() {
 
 // idée -> csv pour indiquer le temps pris par chaque itération et plot le résultat. (python)
 int main(int argc, char *argv[]) {
-    int nb_iter = 50000;
+    long long nb_iter = 5000000;
     
     if(argc > 1) {
-
         nb_iter = atoi(argv[1]);
     }
 
     clock_t start, stop;
     float data_time_taken[nb_iter];
 
-    for(int i = 0; i < nb_iter; i++) {
+    for(long long i = 0; i < nb_iter; i++) {
         start = clock();
         answer();
         stop = clock();
