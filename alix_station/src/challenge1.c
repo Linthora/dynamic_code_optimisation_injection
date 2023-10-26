@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // function to optimized
 long long fast_exponentiation_long_long(long long x, long long y) {
@@ -42,22 +43,32 @@ int main(int argc, char *argv[]) {
 
     printf("I am the parent process\n");
 
-    long addr = 0x0000000000401196;
+    //long addr = 0x0000000000401196;
 
+    // open the process memory (read and write)
 
+    // create string with "/proc/" + pid +  "/mem
 
+    char* start = "/proc/";
+    char* end = "/mem";
+    char* pid_str = argv[1];
 
-    // insert a breakpoint
-    long data = ptrace(PTRACE_PEEKDATA, pid, addr, NULL); // get the instruction
+    char* path = malloc(strlen(start) + strlen(end) + strlen(pid_str) + 1);
+    strcpy(path, start);
+    strcat(path, pid_str);
+    strcat(path, end);
 
+    printf("path: %s\n", path);
 
-    long replace_with = (data & 0xFFFFFFFFFFFFFF00) | 0xCC; // what to replace with
+    FILE *fp = fopen(path, "r+");
 
-    ptrace(PTRACE_POKEDATA, pid, addr, replace_with); // replace the instruction
+    if(fp == NULL) {
+        printf("Error: cannot open file\n");
+        return -1;
+    }
 
-
-
-
+    fclose(fp);
+   
     // ptrace(PTRACE_DETACH, pid, NULL, NULL);
 
     return EXIT_SUCCESS;
@@ -65,3 +76,6 @@ int main(int argc, char *argv[]) {
 
 
 // étape 1, faire un trap dans le processus fils
+// dans /proc -> ya un "faux" fichier qui contient la mémoire, qu'on a le droit de read or write si on est attaché
+// sinon ya TXT  mais moins bien car c'est par mots
+
