@@ -8,7 +8,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -Werror -pedantic -std=c99 -g -no-pie 
 SRC = src_main/prog.c
 OBJ = $(SRC:.c=.o)
-EXEC = prog
+EXEC = prog_to_run
 BUILD_DIR = build
 
 # Rules
