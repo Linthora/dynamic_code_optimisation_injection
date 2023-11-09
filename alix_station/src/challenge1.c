@@ -1,6 +1,8 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <assert.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,27 +38,31 @@ int main(int argc, char *argv[]) {
 
     // add ptrace attach 0000000000401196
 
+    long result;
 
-    ptrace(PTRACE_ATTACH, pid, NULL, NULL);
+    result = ptrace(PTRACE_ATTACH, pid, NULL, NULL);
+    assert(result == 0);
 
-
-    printf("I am the parent process\n");
+    int status;
+    result = waitpid(pid, &status, 0);
+    printf("status: %i\n", status);
+    assert(result == pid);
 
     long addr = 0x0000000000401196;
 
 
 
-
     // insert a breakpoint
     long data = ptrace(PTRACE_PEEKDATA, pid, addr, NULL); // get the instruction
-
+    assert(data != -1);
 
     long replace_with = (data & 0xFFFFFFFFFFFFFF00) | 0xCC; // what to replace with
+    
+    result = ptrace(PTRACE_POKEDATA, pid, addr, replace_with); // replace the instruction
+    assert(result == 0);
 
-    ptrace(PTRACE_POKEDATA, pid, addr, replace_with); // replace the instruction
-
-
-
+    result = ptrace(PTRACE_CONT, pid, NULL, NULL);
+    assert(result == 0);
 
     // ptrace(PTRACE_DETACH, pid, NULL, NULL);
 
