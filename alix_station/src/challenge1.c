@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
     }
 
     pid_t pid = atoi(argv[1]);
+    printf("pid: %i\n", pid);
 
     // add ptrace attach 0000000000401196
 
@@ -74,6 +75,10 @@ int main(int argc, char *argv[]) {
     }
 
     fclose(fp);
+
+    // enter to continue
+    printf("Press enter to continue\n");
+    getchar();
 
     result = ptrace(PTRACE_CONT, pid, NULL, NULL);
     assert(result == 0);
