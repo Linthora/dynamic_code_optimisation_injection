@@ -19,6 +19,9 @@ long get_addr(char* path, char* function_name);
 // find the pid of the process to optimize
 int find_pid(char* name);
 
+// challenge 1
+int challenge1(char * prog_name, char * function_name);
+
 int main(int argc, char *argv[]) {
  
     // prog_name is given in argument
@@ -32,62 +35,7 @@ int main(int argc, char *argv[]) {
 
     char * function_name = "answer";
 
-    int pid = find_pid(prog_name);
-
-    char * prog_where = "../build/prog_to_run";
-    long addr = get_addr(prog_where, function_name);
-
-    printf("pid: %i\n", pid);
-    printf("addr: %lx\n", addr); 
-
-    long result;
-
-    result = ptrace(PTRACE_ATTACH, pid, NULL, NULL);
-    assert(result == 0);
-
-    int status;
-    result = waitpid(pid, &status, 0);
-    printf("status: %i\n", status);
-    assert(result == pid);
-
-    char * path = malloc(100);
-    sprintf(path, "/proc/%i/mem", pid);
-
-    printf("path: %s\n", path);
-
-    FILE *fp = fopen(path, "a+");
-
-    if(fp == NULL) {
-        printf("Error: cannot open file\n");
-        return -1;
-    }
-
-    // put a stop instruction at the address addr
-
-    fseek(fp, addr, SEEK_SET);
-
-    printf("before write\n");
-
-    int instr = 0xCC;
-
-    fwrite( (void *) &instr, 1, sizeof(int), fp);
-
-    printf("after write\n");
-
-    fclose(fp);
-
-    // enter to continue
-    printf("Press enter to continue\n");
-    getchar();
-
-    result = ptrace(PTRACE_CONT, pid, NULL, NULL);
-    assert(result == 0);
-
-    ptrace(PTRACE_DETACH, pid, NULL, NULL);
-
-    free(path);
-
-    return EXIT_SUCCESS;
+    return challenge1(prog_name, function_name);
 }
 
 // function to optimized
@@ -167,4 +115,64 @@ int find_pid(char* name) {
     system("rm tmp~");
 
     return pid;
+}
+
+
+int challenge1(char * prog_name, char * function_name) {
+    int pid = find_pid(prog_name);
+
+    char * prog_where = "../build/prog_to_run";
+    long addr = get_addr(prog_where, function_name);
+
+    printf("pid: %i\n", pid);
+    printf("addr: %lx\n", addr); 
+
+    long result;
+
+    result = ptrace(PTRACE_ATTACH, pid, NULL, NULL);
+    assert(result == 0);
+
+    int status;
+    result = waitpid(pid, &status, 0);
+    printf("status: %i\n", status);
+    assert(result == pid);
+
+    char * path = malloc(100);
+    sprintf(path, "/proc/%i/mem", pid);
+
+    printf("path: %s\n", path);
+
+    FILE *fp = fopen(path, "a+");
+
+    if(fp == NULL) {
+        printf("Error: cannot open file\n");
+        return -1;
+    }
+
+    // put a stop instruction at the address addr
+
+    fseek(fp, addr, SEEK_SET);
+
+    printf("before write\n");
+
+    int instr = 0xCC;
+
+    fwrite( (void *) &instr, 1, sizeof(int), fp);
+
+    printf("after write\n");
+
+    fclose(fp);
+
+    // enter to continue
+    printf("Press enter to continue\n");
+    getchar();
+
+    result = ptrace(PTRACE_CONT, pid, NULL, NULL);
+    // assert(result == 0);
+
+    ptrace(PTRACE_DETACH, pid, NULL, NULL);
+
+    free(path);
+
+    return 0;
 }
