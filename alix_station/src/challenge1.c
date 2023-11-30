@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/user.h>
 #include <assert.h>
 
 #include <stdio.h>
@@ -22,6 +23,10 @@ int find_pid(char* name);
 // challenge 1
 int challenge1(char * prog_name, char * function_name);
 
+
+// challenge 2
+int challenge2(char * prog_name);
+
 int main(int argc, char *argv[]) {
  
     // prog_name is given in argument
@@ -34,8 +39,8 @@ int main(int argc, char *argv[]) {
     char * prog_name = argv[1];
 
     char * function_name = "answer";
-
-    return challenge1(prog_name, function_name);
+    challenge1(prog_name, function_name);
+    //challenge2(prog_name);
 }
 
 // function to optimized
@@ -174,5 +179,114 @@ int challenge1(char * prog_name, char * function_name) {
 
     free(path);
 
-    return 0;
+    return EXIT_SUCCESS;
+}
+
+
+
+// CHALLENGE 2
+
+
+int challenge2(char * prog_name) {
+    int pid = find_pid(prog_name);
+
+    char * prog_where = "../build/prog_to_run";
+    long addr = get_addr(prog_where, "foo");
+
+    printf("pid: %i\n", pid);
+    printf("addr: %lx\n", addr); 
+
+    long result;
+
+    result = ptrace(PTRACE_ATTACH, pid, NULL, NULL);
+    assert(result == 0);
+
+    int status;
+    result = waitpid(pid, &status, 0);
+    printf("status: %i\n", status);
+    assert(result == pid);
+
+    char * path = malloc(100);
+    sprintf(path, "/proc/%i/mem", pid);
+
+    printf("path: %s\n", path);
+
+    FILE *fp = fopen(path, "a+");
+
+    if(fp == NULL) {
+        printf("Error: cannot open file\n");
+        return -1;
+    }
+
+    // enter to continue
+    printf("Press enter to continue\n");
+    getchar();
+
+    // Récupération des Registres: Utilisation de ptrace avec PTRACE_GETREGS pour récupérer les valeurs des registres du processus tracé.
+
+    struct user_regs_struct regs;
+
+    // Save the current instruction
+    long original_instruction = ptrace(PTRACE_PEEKTEXT, pid, regs.rip, NULL);
+
+    // Calculate the relative address of the function from the next instruction
+    long relative_address = addr - (regs.rip + 5);
+
+    // Write the call instruction and the trap instruction
+    //ptrace(PTRACE_POKETEXT, pid, regs.rip, (original_instruction & 0xFFFFFFFF00000000L) | 0xccE8000000L | (relative_address & 0xFFFFFFFF));
+    // Set the rax register to the address of the function to call
+    regs.rax = 0xffd0;
+
+    // Set the rip register to the location of the inserted call instruction
+    regs.rip = addr;
+
+    // Set the new register values
+    ptrace(PTRACE_SETREGS, pid, NULL, &regs);
+
+    // set a trap after the call instruction
+    ptrace(PTRACE_POKETEXT, pid, regs.rip, (original_instruction & 0xFFFFFFFF00000000L) | 0xccE8000000L | (relative_address & 0xFFFFFFFF));
+
+    // Continue the tracee's execution
+    ptrace(PTRACE_CONT, pid, NULL, NULL);
+
+    /*// Get the current register values
+    result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+
+    // save the current instruction
+    long original_instruction = ptrace(PTRACE_PEEKTEXT, pid, regs.rip, NULL);
+
+    // write the call instruction and the trap instruction
+    ptrace(PTRACE_POKETEXT, pid, regs.rip, (original_instruction & 0xFFFFFFFF00000000L) | 0xd0ffcc);
+
+    // Set the rax register to the address of the function to call
+    regs.rax = addr;
+    
+    // Set the new register values
+    ptrace(PTRACE_SETREGS, pid, NULL, &regs);
+    
+    // Continue the tracee's execution
+    result = ptrace(PTRACE_CONT, pid, NULL, NULL);
+    assert(result == 0);*/
+
+    // ...
+
+    // press enter to continue
+    printf("Press enter to continue (before detaching)\n");
+    getchar();
+
+    // Détacher le processus tracé
+    result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
+    assert(result == 0);
+
+    // ...
+
+   
+
+    free(path);
+
+    // press enter to continue
+    printf("Press enter to continue\n");
+    getchar();
+
+    return EXIT_SUCCESS;
 }

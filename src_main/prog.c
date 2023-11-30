@@ -26,6 +26,10 @@ void answer() {
     printf("Hello, exp(3,100) = %lli\n", exponentiation_long_long(3, 10000));
 }
 
+void foo() {
+    printf("FOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n");
+}
+
 // idée -> csv pour indiquer le temps pris par chaque itération et plot le résultat. (python)
 int main(int argc, char *argv[]) {
 
