@@ -237,8 +237,10 @@ int challenge2(char * prog_name, char * function_name) {
                     0xCC // trap
                     };
     fwrite( (void *) intr, 1, sizeof(intr), fp);
+    printf("size of intr: %lu\n", sizeof(intr));
     printf("after write\n");
-    // fflush(fp);
+    fflush(fp);
+    fclose(fp);
 
     // resume
     result = ptrace(PTRACE_CONT, pid, NULL, NULL);
@@ -278,7 +280,7 @@ int challenge2(char * prog_name, char * function_name) {
     getchar();
 
     // Get the current register values
-    result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+    // result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 
     // restore the eax register
     regs.rax = original_eax;
@@ -290,8 +292,7 @@ int challenge2(char * prog_name, char * function_name) {
     // resume
     result = ptrace(PTRACE_CONT, pid, NULL, NULL);
     assert(result == 0);
-
-    ptrace(PTRACE_CONT, pid, NULL, NULL);
+    printf("resumed\n");
 
     // Détacher le processus tracé
     result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
