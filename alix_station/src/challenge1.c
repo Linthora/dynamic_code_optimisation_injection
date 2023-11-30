@@ -230,6 +230,9 @@ int challenge2(char * prog_name, char * function_name) {
     // insert a trap after the call instruction
     printf("before write\n");
     fseek(fp, addr, SEEK_SET);
+
+    // foo is int foo(int i)
+
     
     // byte array
     unsigned char intr[] = { 0xCC, // trap
@@ -259,9 +262,12 @@ int challenge2(char * prog_name, char * function_name) {
 
     // save the current eax
     long original_eax = regs.rax;
+    long original_rdi = regs.rdi;
 
     // put addr_foo in eax
     regs.rax = addr_foo;
+    regs.rdi = 42;
+    // regs.rsi = 44;
 
     // Set the new register values
     result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
@@ -280,10 +286,14 @@ int challenge2(char * prog_name, char * function_name) {
     getchar();
 
     // Get the current register values
-    // result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+    result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+    printf("rax: %lli\n", regs.rax);
+    printf("Press enter to continue (after print)\n");
+    getchar();
 
     // restore the eax register
     regs.rax = original_eax;
+    regs.rdi = original_rdi;
 
     // Set the new register values
     result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);

@@ -28,12 +28,19 @@ void answer(long long i) {
         printf("Hello, exp(3,100) = %lli\n", res);
 }
 
-void foo() {
-    printf("FOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n");
+int foo(int i) {
+    printf("FOO3\n");
+    printf("FOOOOOOOOOO %d\n", i);
+    printf("FOO3\n");
+    //exit(346);
+    return 42;
 }
 
 // idée -> csv pour indiquer le temps pris par chaque itération et plot le résultat. (python)
 int main(int argc, char *argv[]) {
+    foo(42);
+
+    exit(0);
 
     long long nb_iter = __LONG_LONG_MAX__;
 

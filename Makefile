@@ -5,7 +5,7 @@
 # no optimization, debugging info, all warnings
 
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -pedantic -std=c99 -g -no-pie 
+CFLAGS = -Wall -Wextra -pedantic -std=c99 -g -no-pie -static
 SRC = src_main/prog.c
 OBJ = $(SRC:.c=.o)
 EXEC = prog_to_run
