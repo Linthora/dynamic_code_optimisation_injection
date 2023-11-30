@@ -266,8 +266,7 @@ int challenge2(char * prog_name, char * function_name) {
 
     // put addr_foo in eax
     regs.rax = addr_foo;
-    regs.rdi = 42;
-    // regs.rsi = 44;
+    regs.rdi = 3;
 
     // Set the new register values
     result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
@@ -280,6 +279,13 @@ int challenge2(char * prog_name, char * function_name) {
     // wait for the trap
     result = waitpid(pid, &status, 0);
     printf("status: %i\n", status);
+    //printf("WEXITSTATUS: %i\n", WEXITSTATUS(status));
+    //printf("WIFEXITED: %i\n", WIFEXITED(status));
+    //printf("WIFSIGNALED: %i\n", WIFSIGNALED(status));
+    //printf("WTERMSIG: %i\n", WTERMSIG(status));
+
+
+
     assert(result == pid);
 
     printf("Press enter to continue (second trap)\n");

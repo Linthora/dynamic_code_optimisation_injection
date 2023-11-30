@@ -29,18 +29,25 @@ void answer(long long i) {
 }
 
 int foo(int i) {
+    for(int j = 0; j < i; j++)
+        printf("FOO1\n");
     printf("FOO3\n");
+        /* int j = 1234;
+    j = i;
+    printf("FOOOOOOOOOO %d\n", j);
     printf("FOOOOOOOOOO %d\n", i);
-    printf("FOO3\n");
+    printf("FOO3\n"); */
     //exit(346);
-    return 42;
+    return i+4;
 }
 
 // idée -> csv pour indiquer le temps pris par chaque itération et plot le résultat. (python)
 int main(int argc, char *argv[]) {
-    foo(42);
+    
+    prctl(PR_SET_PTRACER,PR_SET_PTRACER_ANY);
+    //foo(42);
 
-    exit(0);
+    //exit(0);
 
     long long nb_iter = __LONG_LONG_MAX__;
 
