@@ -25,7 +25,7 @@ int challenge1(char * prog_name, char * function_name);
 
 
 // challenge 2
-int challenge2(char * prog_name);
+int challenge2(char * prog_name, char * function_name);
 
 int main(int argc, char *argv[]) {
  
@@ -38,9 +38,9 @@ int main(int argc, char *argv[]) {
 
     char * prog_name = argv[1];
 
-    //char * function_name = "answer";
+    char * function_name = "answer";
     //challenge1(prog_name, function_name);
-    challenge2(prog_name);
+    challenge2(prog_name, function_name);
 }
 
 // function to optimized
@@ -187,12 +187,14 @@ int challenge1(char * prog_name, char * function_name) {
 // CHALLENGE 2
 
 
-int challenge2(char * prog_name) {
+int challenge2(char * prog_name, char * function_name) {
     int pid = find_pid(prog_name);
 
     char * prog_where = "../build/prog_to_run";
-    long addr = get_addr(prog_where, "foo");
-    int trap_intr = 0xCC;
+    long addr_foo = get_addr(prog_where, "foo");
+    long addr = get_addr(prog_where, function_name);
+    printf("addr_foo: %lx\n", addr_foo);
+    printf("addr of %s: %lx\n", function_name, addr);
 
     printf("pid: %i\n", pid);
     printf("addr: %lx\n", addr); 
@@ -201,6 +203,10 @@ int challenge2(char * prog_name) {
 
     result = ptrace(PTRACE_ATTACH, pid, NULL, NULL);
     assert(result == 0);
+
+    printf("attached\n");
+    //printf("Press enter to continue\n");
+    getchar();
 
     int status;
     result = waitpid(pid, &status, 0);
@@ -219,100 +225,77 @@ int challenge2(char * prog_name) {
         return -1;
     }
 
+    // trap at addr
+    // insert a call %eax instruction after the trap
+    // insert a trap after the call instruction
+    printf("before write\n");
+    fseek(fp, addr, SEEK_SET);
+    
+    // byte array
+    unsigned char intr[] = { 0xCC, // trap
+                    0xFF, 0xD0, // call %eax
+                    0xCC // trap
+                    };
+    fwrite( (void *) intr, 1, sizeof(intr), fp);
+    printf("after write\n");
+    // fflush(fp);
 
-    // enter to continue
-    printf("Press enter to continue\n");
-    getchar();
-
-    // Récupération des Registres: Utilisation de ptrace avec PTRACE_GETREGS pour récupérer les valeurs des registres du processus tracé.
-
-    struct user_regs_struct regs;
-
-    // Get the current register values
-    result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+    // resume
+    result = ptrace(PTRACE_CONT, pid, NULL, NULL);
     assert(result == 0);
 
-    /* 
-    Modifier le code du processus tracé pour insérer l’appel à la fonction à appeler. On
-    ne peut pas se contenter ici d'initialiser rip à l'adresse de foo car on aurait alors un
-    problème lors du retour de fonction. On pourra utiliser par exemple un appel indirect
-    via le registre rax (code 0xff 0xd0), suivi d'un trap pour récupérer le contrôle. 
-    */
+    // wait for the trap
+    result = waitpid(pid, &status, 0);
+    printf("status: %i\n", status);
+    assert(result == pid);
 
-    // save the current instruction
-    // long original_instruction = ptrace(PTRACE_PEEKTEXT, pid, regs.rip, NULL);
 
-    // change the rip register to the address of the function to call
-    regs.rip = addr;
+    // Get the current register values
+    struct user_regs_struct regs;
+
+    result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+
+    // save the current eax
+    long original_eax = regs.rax;
+
+    // put addr_foo in eax
+    regs.rax = addr_foo;
 
     // Set the new register values
     result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
+    assert(result == 0);
 
-    //// write the call instruction
-    //result = ptrace(PTRACE_POKETEXT, pid, regs.rip, 0xd0ff);
-    //assert(result == 0);
+    // resume
+    result = ptrace(PTRACE_CONT, pid, NULL, NULL);
+    assert(result == 0);
 
-    // call instruction as next instruction executed
-    //result = ptrace(PTRACE_POKETEXT, pid, regs.rip, trap_intr);
-    //assert(result == 0);
+    // wait for the trap
+    result = waitpid(pid, &status, 0);
+    printf("status: %i\n", status);
+    assert(result == pid);
 
-    // enter to continue
-    printf("Press enter to continue\n");
+    printf("Press enter to continue (second trap)\n");
     getchar();
 
-
-    /* // Calculate the relative address of the function from the next instruction
-    long relative_address = addr - (regs.rip + 5);
-
-    // Write the call instruction and the trap instruction
-    //ptrace(PTRACE_POKETEXT, pid, regs.rip, (original_instruction & 0xFFFFFFFF00000000L) | 0xccE8000000L | (relative_address & 0xFFFFFFFF));
-    // Set the rax register to the address of the function to call
-    regs.rax = 0xffd0;
-
-    // Set the rip register to the location of the inserted call instruction
-    regs.rip = addr;
-
-    // Set the new register values
-    ptrace(PTRACE_SETREGS, pid, NULL, &regs);
-
-    // set a trap after the call instruction
-    ptrace(PTRACE_POKETEXT, pid, regs.rip, (original_instruction & 0xFFFFFFFF00000000L) | 0xccE8000000L | (relative_address & 0xFFFFFFFF));
- */
-    // Continue the tracee's execution
-    ptrace(PTRACE_CONT, pid, NULL, NULL);
-
-    /*// Get the current register values
+    // Get the current register values
     result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 
-    // save the current instruction
-    long original_instruction = ptrace(PTRACE_PEEKTEXT, pid, regs.rip, NULL);
+    // restore the eax register
+    regs.rax = original_eax;
 
-    // write the call instruction and the trap instruction
-    ptrace(PTRACE_POKETEXT, pid, regs.rip, (original_instruction & 0xFFFFFFFF00000000L) | 0xd0ffcc);
-
-    // Set the rax register to the address of the function to call
-    regs.rax = addr;
-    
     // Set the new register values
-    ptrace(PTRACE_SETREGS, pid, NULL, &regs);
-    
-    // Continue the tracee's execution
+    result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
+    assert(result == 0);
+
+    // resume
     result = ptrace(PTRACE_CONT, pid, NULL, NULL);
-    assert(result == 0);*/
+    assert(result == 0);
 
-    // ...
-
-    // press enter to continue
-    printf("Press enter to continue (before detaching)\n");
-    getchar();
+    ptrace(PTRACE_CONT, pid, NULL, NULL);
 
     // Détacher le processus tracé
     result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
-    assert(result == 0);
-
-    // ...
-
-   
+    assert(result == 0);   
 
     free(path);
 

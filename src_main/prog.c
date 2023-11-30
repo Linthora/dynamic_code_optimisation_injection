@@ -22,8 +22,10 @@ long long exponentiation_long_long(long x, long long y) {
     return res;
 }
 
-void answer() {
-    printf("Hello, exp(3,100) = %lli\n", exponentiation_long_long(3, 10000));
+void answer(long long i) {
+    long long res = exponentiation_long_long(3, 10000);
+    if(i % 1000 == 0)
+        printf("Hello, exp(3,100) = %lli\n", res);
 }
 
 void foo() {
@@ -44,7 +46,8 @@ int main(int argc, char *argv[]) {
 
     for(long long i = 0; i < nb_iter; i++) {
         start = clock();
-        answer();
+        for(int j = 0; j < 1000; j++)
+            answer(j);
         stop = clock();
         float time_taken = ((float)stop - (float)start) / CLOCKS_PER_SEC;
         //data_time_taken[i] = time_taken;
