@@ -38,9 +38,9 @@ int main(int argc, char *argv[]) {
 
     char * prog_name = argv[1];
 
-    char * function_name = "answer";
-    challenge1(prog_name, function_name);
-    //challenge2(prog_name);
+    //char * function_name = "answer";
+    //challenge1(prog_name, function_name);
+    challenge2(prog_name);
 }
 
 // function to optimized
@@ -192,6 +192,7 @@ int challenge2(char * prog_name) {
 
     char * prog_where = "../build/prog_to_run";
     long addr = get_addr(prog_where, "foo");
+    int trap_intr = 0xCC;
 
     printf("pid: %i\n", pid);
     printf("addr: %lx\n", addr); 
@@ -218,6 +219,7 @@ int challenge2(char * prog_name) {
         return -1;
     }
 
+
     // enter to continue
     printf("Press enter to continue\n");
     getchar();
@@ -226,10 +228,40 @@ int challenge2(char * prog_name) {
 
     struct user_regs_struct regs;
 
-    // Save the current instruction
-    long original_instruction = ptrace(PTRACE_PEEKTEXT, pid, regs.rip, NULL);
+    // Get the current register values
+    result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+    assert(result == 0);
 
-    // Calculate the relative address of the function from the next instruction
+    /* 
+    Modifier le code du processus tracé pour insérer l’appel à la fonction à appeler. On
+    ne peut pas se contenter ici d'initialiser rip à l'adresse de foo car on aurait alors un
+    problème lors du retour de fonction. On pourra utiliser par exemple un appel indirect
+    via le registre rax (code 0xff 0xd0), suivi d'un trap pour récupérer le contrôle. 
+    */
+
+    // save the current instruction
+    // long original_instruction = ptrace(PTRACE_PEEKTEXT, pid, regs.rip, NULL);
+
+    // change the rip register to the address of the function to call
+    regs.rip = addr;
+
+    // Set the new register values
+    result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
+
+    //// write the call instruction
+    //result = ptrace(PTRACE_POKETEXT, pid, regs.rip, 0xd0ff);
+    //assert(result == 0);
+
+    // call instruction as next instruction executed
+    //result = ptrace(PTRACE_POKETEXT, pid, regs.rip, trap_intr);
+    //assert(result == 0);
+
+    // enter to continue
+    printf("Press enter to continue\n");
+    getchar();
+
+
+    /* // Calculate the relative address of the function from the next instruction
     long relative_address = addr - (regs.rip + 5);
 
     // Write the call instruction and the trap instruction
@@ -245,7 +277,7 @@ int challenge2(char * prog_name) {
 
     // set a trap after the call instruction
     ptrace(PTRACE_POKETEXT, pid, regs.rip, (original_instruction & 0xFFFFFFFF00000000L) | 0xccE8000000L | (relative_address & 0xFFFFFFFF));
-
+ */
     // Continue the tracee's execution
     ptrace(PTRACE_CONT, pid, NULL, NULL);
 
