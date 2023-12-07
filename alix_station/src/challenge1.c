@@ -225,15 +225,11 @@ int challenge2(char * prog_name, char * function_name) {
         return -1;
     }
 
-    // trap at addr
-    // insert a call %eax instruction after the trap
-    // insert a trap after the call instruction
     printf("before write\n");
     fseek(fp, addr, SEEK_SET);
 
-    // foo is int foo(int i)
+    // foo is int foo(int * i)
 
-    
     // byte array
     unsigned char intr[] = { 0xCC, // trap
                     0xFF, 0xD0, // call %eax
@@ -254,7 +250,6 @@ int challenge2(char * prog_name, char * function_name) {
     printf("status: %i\n", status);
     assert(result == pid);
 
-
     // Get the current register values
     struct user_regs_struct regs;
 
@@ -266,7 +261,25 @@ int challenge2(char * prog_name, char * function_name) {
 
     // put addr_foo in eax
     regs.rax = addr_foo;
-    regs.rdi = 3;
+
+    fp = fopen(path, "a+");
+
+    if(fp == NULL) {
+        printf("Error: cannot open file\n");
+        return -1;
+    }
+
+    int arg = 6;
+    regs.rsp -= sizeof(int);
+
+    // Write the argument value to the target process memory
+    fseek(fp, regs.rsp, SEEK_SET);
+    fwrite((void *)&arg, sizeof(int), 1, fp);
+    fflush(fp);
+    fclose(fp);
+
+    // Set rdi to the address of the argument value
+    regs.rdi = regs.rsp;
 
     // Set the new register values
     result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
@@ -279,12 +292,6 @@ int challenge2(char * prog_name, char * function_name) {
     // wait for the trap
     result = waitpid(pid, &status, 0);
     printf("status: %i\n", status);
-    //printf("WEXITSTATUS: %i\n", WEXITSTATUS(status));
-    //printf("WIFEXITED: %i\n", WIFEXITED(status));
-    //printf("WIFSIGNALED: %i\n", WIFSIGNALED(status));
-    //printf("WTERMSIG: %i\n", WTERMSIG(status));
-
-
 
     assert(result == pid);
 
@@ -300,6 +307,7 @@ int challenge2(char * prog_name, char * function_name) {
     // restore the eax register
     regs.rax = original_eax;
     regs.rdi = original_rdi;
+    regs.rsp += sizeof(int);
 
     // Set the new register values
     result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);

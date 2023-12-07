@@ -28,17 +28,11 @@ void answer(long long i) {
         printf("Hello, exp(3,100) = %lli\n", res);
 }
 
-int foo(int i) {
-    for(int j = 0; j < i; j++)
+int foo(int * i) {
+    for(int j = 0; j < *i; j++)
         printf("FOO1\n");
     printf("FOO3\n");
-        /* int j = 1234;
-    j = i;
-    printf("FOOOOOOOOOO %d\n", j);
-    printf("FOOOOOOOOOO %d\n", i);
-    printf("FOO3\n"); */
-    //exit(346);
-    return i+4;
+    return *i+4;
 }
 
 // idée -> csv pour indiquer le temps pris par chaque itération et plot le résultat. (python)
