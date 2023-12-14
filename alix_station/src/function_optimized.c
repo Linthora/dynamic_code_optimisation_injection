@@ -18,3 +18,8 @@ long long fast_exponentiation_long_long(long long x, long long y) {
     }
     return res;
 }
+
+
+int yolo(int x) {
+    return x + 1;
+}

@@ -22,10 +22,11 @@ long long exponentiation_long_long(long x, long long y) {
     return res;
 }
 
-void answer(long long i) {
+void answer() {
     long long res = exponentiation_long_long(3, 10000);
-    if(i % 10000 == 0)
-        printf("Hello, exp(3,100) = %lli\n", res);
+    for(int j = 0; j < 10000; j++)
+        res = exponentiation_long_long(3, 10000);
+    printf("Hello, exp(3,100) = %lli\n", res);
 }
 
 int foo(int * i) {
@@ -34,6 +35,14 @@ int foo(int * i) {
     printf("FOO3\n");
     return *i+4;
 }
+
+/* void* posixx_al_call() {
+    size_t allign = getpagesize();
+    void* ptr;
+    size_t size = 145;
+    int res = posix_memalign(&ptr, allign, size);
+    return ptr;
+} */
 
 // idée -> csv pour indiquer le temps pris par chaque itération et plot le résultat. (python)
 int main(int argc, char *argv[]) {
@@ -55,7 +64,7 @@ int main(int argc, char *argv[]) {
     for(long long i = 0; i < nb_iter; i++) {
         start = clock();
         for(int j = 0; j < 10000; j++)
-            answer(j);
+            answer();
         stop = clock();
         float time_taken = ((float)stop - (float)start) / CLOCKS_PER_SEC;
         //data_time_taken[i] = time_taken;
