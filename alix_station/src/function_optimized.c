@@ -1,8 +1,10 @@
 #include <stdio.h>
 
 // function to optimized
-long long fast_exponentiation_long_long(long long x, long long y) {
-    // fast exponentiation
+int fast_exponentiation_long_long(int x, int y) {
+    int res = x + y;
+    return res;
+    /* // fast exponentiation
     if(y < 0) {
         printf("Error: y must be positive\n");
         return -1;
@@ -16,10 +18,14 @@ long long fast_exponentiation_long_long(long long x, long long y) {
         x *= x;
         y /= 2;
     }
-    return res;
+    return res; */
 }
 
 
 int yolo(int x) {
     return x + 1;
+}
+
+int main() {
+    
 }

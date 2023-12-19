@@ -8,7 +8,7 @@
 #include <unistd.h> */
 
 // à opti en live en speed_ext
-long long exponentiation_long_long(long x, long long y) {
+int exponentiation_long_long(int x, int y) {
 
     if(y < 0) {
         printf("Error: y must be positive\n");
@@ -19,8 +19,8 @@ long long exponentiation_long_long(long x, long long y) {
         return 1;
     }
 
-    long long res = 1;
-    for(long long i = 0; i < y; i++) {
+    int res = 1;
+    for(int i = 0; i < y; i++) {
         res *= x;
     }
     return res;
@@ -38,12 +38,12 @@ int foo(int * i) {
 }
 
 void answer() {
-    long long res;
+    //long long res;
     for(int j = 0; j < 10000; j++)
         exponentiation_long_long(3, 100000);
 
-    printf("getpagesize: %d\n", getpagesize());
-    // printf("Hello, exp(3,100) = %lli\n", res);
+    // printf("getpagesize: %d\n", getpagesize());
+    printf("exponentiation_long_long: %d\n", exponentiation_long_long(3, 100000));
 }
 
 void* posixx_al_call() {

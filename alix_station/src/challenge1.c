@@ -38,11 +38,11 @@ int main(int argc, char *argv[]) {
 
     //challenge1(prog_name, function_name);
 
-    char * function_name = "answer";
-    challenge2(prog_name, function_name);
+    // char * function_name = "answer";
+    // challenge2(prog_name, function_name);
     
-    //char * function_name = "exponentiation_long_long";
-    //challenge3(prog_name, function_name);
+    char * function_name = "exponentiation_long_long";
+    challenge3(prog_name, function_name);
 }
 
 // étape 1, faire un trap dans le processus fils
@@ -330,7 +330,7 @@ int challenge2(char * prog_name, char * function_name) {
 // Challenge 3 - Code Cache
 int challenge3(char *prog_name, char *function_name) {
     // code of the function to optimise
-    unsigned char code[] = {
+    /* unsigned char code[] = {
           0xf3, 0x0f, 0x1e, 0xfa, 0x55, 0x48, 0x89, 0xe5, 0x48, 0x83, 0xec, 0x20, 0x48, 0x89, 0x7d, 0xe8, 0x48, 0x89, 0x75, 0xe0
         , 0x48, 0x83, 0x7d, 0xe0, 0x00, 0x79, 0x18, 0x48, 0x8d, 0x05, 0x00, 0x00, 0x00, 0x00, 0x48, 0x89, 0xc7, 0xe8, 0x00, 0x00, 0x00, 0x00
         , 0x48, 0xc7, 0xc0, 0xff, 0xff, 0xff, 0xff, 0xeb, 0x5c, 0x48, 0xc7, 0x45, 0xf8, 0x01, 0x00, 0x00, 0x00, 0xeb, 0x47
@@ -338,6 +338,20 @@ int challenge3(char *prog_name, char *function_name) {
         , 0x75, 0x0d, 0x48, 0x8b, 0x45, 0xf8, 0x48, 0x0f, 0xaf, 0x45, 0xe8, 0x48, 0x89, 0x45, 0xf8, 0x48, 0x8b, 0x45, 0xe8, 0x48, 0x0f, 0xaf, 0xc0          	
         , 0x48, 0x89, 0x45, 0xe8, 0x48, 0x8b, 0x45, 0xe0, 0x48, 0x89, 0xc2, 0x48, 0xc1, 0xea, 0x3f, 0x48, 0x01, 0xd0, 0x48, 0xd1, 0xf8             	
         , 0x48, 0x89, 0x45, 0xe0, 0x48, 0x83, 0x7d, 0xe0, 0x00, 0x7f, 0xb2, 0x48, 0x8b, 0x45, 0xf8, 0xc9, 0xc3
+    }; */
+
+    unsigned char code[] = {
+    	0x55,
+        0x48, 0x89, 0xe5,
+        0x89, 0x7d, 0xec,
+        0x89, 0x75, 0xe8,
+        0x8b, 0x55, 0xec,
+        0x8b, 0x45, 0xe8,
+        0x01, 0xd0,        
+        0x89, 0x45, 0xfc,     
+        0x8b, 0x45, 0xfc,     
+        0x5d,
+    	0xc3,
     };
 
 
@@ -353,6 +367,7 @@ int challenge3(char *prog_name, char *function_name) {
 
     char * prog_where = "../build/prog_to_run";
     long addr = get_addr(prog_where, function_name);
+    addr += 4;
     printf("addr of %s: %lx\n", function_name, addr);
     printf("pid: %i\n", pid);
 
@@ -396,11 +411,11 @@ int challenge3(char *prog_name, char *function_name) {
      */
 
     unsigned char trap = 0xCC;
-    unsigned char * save_1st_trap = malloc(sizeof(trap));
+    // unsigned char * save_1st_trap = malloc(sizeof(trap));
     // save 
-    fseek(fp, addr, SEEK_SET);
-    fread(save_1st_trap, 1, sizeof(trap), fp);
-    fflush(fp);
+    // fseek(fp, addr, SEEK_SET);
+    // fread(save_1st_trap, 1, sizeof(trap), fp);
+    // fflush(fp);
     // write
     fseek(fp, addr, SEEK_SET);
     fwrite(&trap, 1, sizeof(trap), fp);
@@ -440,8 +455,6 @@ int challenge3(char *prog_name, char *function_name) {
     printf("addr_memalign: %lx\n", addr_memalign);
     printf("addr_mprotect: %lx\n", addr_mprotect);
 
-    int tmp = getpagesize();
-    printf("getpagesize here: %i\n", tmp);
     // I need to do something like this:
     // trap
     // call getpagesize -> save the result in a register (the one that will be used as argument for memalign)
@@ -466,9 +479,8 @@ int challenge3(char *prog_name, char *function_name) {
         0xCC // trap
     };
 
-    unsigned char * save_instructions = malloc(sizeof(instructions));
-    
-    printf("size of save_instructions: %lu\n", sizeof(save_instructions));
+    // unsigned char * save_instructions = malloc(sizeof(instructions));
+    // printf("size of save_instructions: %lu\n", sizeof(save_instructions));
     printf("size of instructions: %lu\n", sizeof(instructions));
 
     printf("\npress enter to continue (before writing the instructions)\n");
@@ -484,9 +496,9 @@ int challenge3(char *prog_name, char *function_name) {
     printf("saving instructions\n");
     
     // save the instructions, starting at addr + 1 (the first trap)
-    fseek(fp, addr + 1, SEEK_SET);
-    fread(save_instructions, 1, sizeof(instructions), fp);
-    fflush(fp);
+    // fseek(fp, addr + 1, SEEK_SET);
+    // fread(save_instructions, 1, sizeof(instructions), fp);
+    // fflush(fp);
     
     // write the instructions
     fseek(fp, addr + 1, SEEK_SET);
@@ -502,11 +514,16 @@ int challenge3(char *prog_name, char *function_name) {
 
     struct user_regs_struct original_regs;
     struct user_regs_struct regs;
+
     // Get the current register values
     result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
     assert(result == 0);
     result = ptrace(PTRACE_GETREGS, pid, NULL, &original_regs);
     assert(result == 0);
+
+    // see if the registers are correct
+    printf("rax: %lli, rdi: %lli, rsp: %lli, rip: %lli\n", regs.rax, regs.rdi, regs.rsp, regs.rip);
+    printf("original_regs.rax: %lli, original_regs.rdi: %lli, original_regs.rsp: %lli, original_regs.rip: %lli\n", original_regs.rax, original_regs.rdi, original_regs.rsp, original_regs.rip);
 
     printf("registers got\n");
 
@@ -538,16 +555,20 @@ int challenge3(char *prog_name, char *function_name) {
     result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
     assert(result == 0);
 
-    int page_size = regs.rax;
+    size_t page_size = regs.rax;
     printf("page_size: %i\n", page_size);
     printf("Pagesize rax: %lld\n", regs.rax);
 
+    size_t code_size = sizeof(code);
+    printf("code_size: %i\n", code_size);
+
     // need to make space on the stack for the pointer to pass to memalign
-    regs.rsp -= sizeof(long);
+    // regs.rsp -= sizeof(long);
+    regs.rsp -= sizeof(void *);
     // get the address of the pointer on the stack
     regs.rdi = regs.rsp;
     regs.rsi = page_size;
-    regs.rdx = sizeof(code);
+    regs.rdx = code_size;
     // put the address of memalign in eax
     regs.rax = addr_memalign;
 
@@ -581,11 +602,14 @@ int challenge3(char *prog_name, char *function_name) {
         return -1;
     }
 
+    // print regs.rdi and regs.rsp
+    printf("regs.rdi: %lld\n", regs.rdi);
+    printf("regs.rsp: %lld\n", regs.rsp);
+
     // assert that the call to memalign returned 0
     assert(regs.rax == 0);
-
-    // get the address of the pointer on the stack (read the value at rsp)
-    long addr_pointer;
+    // get the address of the pointer on the stack
+    void * addr_pointer;
     fseek(fp, regs.rsp, SEEK_SET);
     fread(&addr_pointer, 1, sizeof(addr_pointer), fp);
     fflush(fp);
@@ -593,23 +617,39 @@ int challenge3(char *prog_name, char *function_name) {
     printf("addr_pointer: %p\n", addr_pointer);
     printf("addr_pointer: %lld\n", addr_pointer);
 
-    fseek(fp, regs.rsp + sizeof(long), SEEK_SET);
-    fread(&addr_pointer, 1, sizeof(addr_pointer), fp);
-    fflush(fp);
+    /* void ** local_test = malloc(sizeof(void*));
+    int blaaa = posix_memalign(local_test, page_size, 25);
+    assert(blaaa == 0);
+    printf("local_test: %p\n", local_test);
+    printf("local_test: %lld\n", local_test); */
+    
 
-    printf("addr_pointer: %p\n", addr_pointer);
-    printf("addr_pointer: %lld\n", addr_pointer);
+    /* *local_test = "blabla\0";
+    printf("local_test: %s\n", *local_test);
+    printf("local_test: %lld\n", *local_test);
 
-    // print addr_pointer in hex
-    printf("addr_pointer in hex: %llx\n", addr_pointer);
+
+    void * local_test2 = local_test;
+
+    // store "blabla\0" at local_test
+    printf("local_test: %p\n", local_test);
+    printf("local_test: %lld\n", local_test);
+    printf("local_test: %s\n", *local_test);
+    
+    printf("local_test2: %s\n", local_test2);
+    printf("local_test2: %lld\n", local_test2);*/
+
+
     printf("---- Press enter to resume after reading the address of the pointer\n");
     getchar();
 
-    // write the code at the address of the pointer
+    fclose(fp);
+
+    /* // write the code at the address of the pointer
     fseek(fp, addr_pointer, SEEK_SET);
     fwrite(code, 1, sizeof(code), fp);
     fflush(fp);
-    fclose(fp);
+    fclose(fp); */
 
     printf("Press enter to resume after writing the code\n");
     getchar();
@@ -617,7 +657,7 @@ int challenge3(char *prog_name, char *function_name) {
     // give the correct arguments to mprotect
     regs.rdi = addr_pointer;
     regs.rsi = sizeof(code);
-    regs.rdx = PROT_EXEC;
+    regs.rdx = PROT_READ | PROT_WRITE | PROT_EXEC;
     regs.rax = addr_mprotect;
 
     // set the new register values
@@ -646,6 +686,9 @@ int challenge3(char *prog_name, char *function_name) {
     // assert that the call to mprotect returned 0
     assert(regs.rax == 0);
 
+    printf("regs retrieved\n");
+    printf("Press enter to resume after retrieving the registers\n");
+    getchar();
     // we now need to restore the previous instructions
     // add the jump to the new code
     // restore the registers to the original values with rip pointing to the jump
@@ -656,32 +699,77 @@ int challenge3(char *prog_name, char *function_name) {
         return -1;
     }
 
+    // write the code at the address of the pointer // TEST
+    fseek(fp, addr_pointer, SEEK_SET);
+    fwrite(code, 1, sizeof(code), fp);
+    fflush(fp);
+
+    printf("Press enter to resume after opening the file\n");
+    getchar();
+
     // restore the instructions
-    fseek(fp, addr, SEEK_SET);
-    fwrite(save_1st_trap, 1, sizeof(trap), fp);
-    fflush(fp);
-    fwrite(save_instructions, 1, sizeof(instructions), fp);
-    fflush(fp);
+    //fseek(fp, addr, SEEK_SET);
+    //fwrite(save_1st_trap, 1, sizeof(trap), fp);
+    //fflush(fp);
+    // fwrite(save_instructions, 1, sizeof(instructions), fp);
+    // fflush(fp);
+    printf("instructions restored\n");
+    printf("Press enter to resume after restoring the instructions\n");
+    getchar();
+
+    // long addr_foo = get_addr(prog_where, "foo"); // tmp
 
     // write the jump
     unsigned char jump[] = {
         0x48, 0xb8
     };
     fseek(fp, addr, SEEK_SET);
-    fwrite(jump, 1, sizeof(jump), fp);
-    fflush(fp);
+    fwrite(jump, 1, 2, fp);
+    //fflush(fp);
+    // try to write the address of foo.
+    // fwrite(&addr_foo, 1, sizeof(addr_foo), fp);// tmp
     // write the addr_pointer
-    fwrite(&addr_pointer, 1, sizeof(addr_pointer), fp);
+    fwrite(&addr_pointer, 1, 8, fp);
     fflush(fp);
+
+
+    unsigned char end_jump[] = {
+        0xff, 0xe0
+    };
+
+    fwrite(end_jump, 1, 2, fp);
+    fflush(fp);
+
     fclose(fp);
 
+    printf("Press enter to resume after writing the jump\n");
+    getchar();
+
     // change the original registers to directly resume on the jump
-    assert(original_regs.rip == addr + 1);
-    original_regs.rip = addr;
+    //assert(original_regs.rip == addr + 1);
+    // original_regs.rip = addr;
 
     // set the new register values
+    // result = ptrace(PTRACE_SETREGS, pid, NULL, &original_regs);
+    // assert(result == 0);
+
+    // resume but rip is pointing to the jump
+
+
+    
+    original_regs.rip = addr; 
+
+    // regs.rip = addr_pointer;
+    // regs.rsp += sizeof(void *);
+
+    // set the new register values
+    //result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
     result = ptrace(PTRACE_SETREGS, pid, NULL, &original_regs);
     assert(result == 0);
+
+    printf("regs set\n");
+    printf("Press enter to resume after setting the registers\n");
+    getchar();
 
     // resume
     printf("Press enter to resume after writing the jump\n");
@@ -690,9 +778,40 @@ int challenge3(char *prog_name, char *function_name) {
     assert(result == 0);
     
     // free the memory
-    free(save_instructions);
-    free(save_1st_trap);
+    // free(save_instructions);
+    // free(save_1st_trap);
+
+    result = waitpid(pid, &status, 0);
+    printf("status: %i\n", status);
+    assert(result == pid);
+
+    // see what the signal is
+    printf("signal: %i\n", WSTOPSIG(status));
+
+
+    // get the registers
+    result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+    assert(result == 0);
+
+    printf("rax: %lli\n", regs.rax);
+    printf("rdi: %lli\n", regs.rdi);
+    printf("rsp: %lli\n", regs.rsp);
+    printf("rip: %lli\n", regs.rip);
+
+    // print original_regs
+    printf("original_regs.rax: %lli\n", original_regs.rax);
+    printf("original_regs.rdi: %lli\n", original_regs.rdi);
+    printf("original_regs.rsp: %lli\n", original_regs.rsp);
+    printf("original_regs.rip: %lli\n", original_regs.rip);
+
+    printf("frees done\n");
+    printf("Press enter to detach\n");
+    getchar();
+
     free(path);
+    // detach
+    result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
+    assert(result == 0);
 
     return 0;
 }
