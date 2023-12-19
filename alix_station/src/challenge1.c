@@ -684,9 +684,9 @@ void challenge3_4(char *prog_name, char *function_name) {
     // free(save_instructions);
     // free(save_1st_trap);
 
-    result = waitpid(pid, &status, 0);
-    printf("status: %i\n", status);
-    assert(result == pid);
+    // result = waitpid(pid, &status, 0);
+    // printf("status: %i\n", status);
+    // assert(result == pid);
 
     // see what the signal is
     printf("signal: %i\n", WSTOPSIG(status));
