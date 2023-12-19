@@ -7,8 +7,12 @@
 /* #include <sys/types.h>
 #include <unistd.h> */
 
-// à opti en live en speed_ext
-int exponentiation_long_long(int x, int y) {
+/**
+ * The function that we want to optimize
+ * Function to compute x^y
+ * But here, it's not done in a fast way
+*/
+long long exponentiation_long_long(long long x, long long y) {
 
     if(y < 0) {
         printf("Error: y must be positive\n");
@@ -19,14 +23,14 @@ int exponentiation_long_long(int x, int y) {
         return 1;
     }
 
-    int res = 1;
-    for(int i = 0; i < y; i++) {
+    long long res = 1;
+    for(long long i = 0; i < y; i++) {
         res *= x;
     }
     return res;
 }
 
-
+// Test function for challenge 2
 int foo(int * i) {
     for(int j = 0; j < *i; j++)
         printf("FOO1\n");
@@ -37,52 +41,35 @@ int foo(int * i) {
     return res;
 }
 
+// Function used to monitorize the time taken by the function to optimize
 void answer() {
-    //long long res;
-    for(int j = 0; j < 10000; j++)
-        exponentiation_long_long(3, 100000);
+    for(int j = 0; j < 1000000; j++)
+        exponentiation_long_long(3, 1000);
 
-    // printf("getpagesize: %d\n", getpagesize());
-    printf("exponentiation_long_long: %d\n", exponentiation_long_long(3, 100000));
+    printf("exponentiation_long_long: %lli\n", exponentiation_long_long(3, 1000));
 }
 
-void* posixx_al_call() {
-    size_t allign = getpagesize();
-    void* ptr;
-    size_t size = 145;
-    int res = posix_memalign(&ptr, allign, size);
-    return ptr;
-}
+/**
+ * Main
+*/
+int main() {
 
-// idée -> csv pour indiquer le temps pris par chaque itération et plot le résultat. (python)
-int main(int argc, char *argv[]) {
-    
+    // allow to the process to be traced    
     prctl(PR_SET_PTRACER,PR_SET_PTRACER_ANY);
-    //foo(42);
 
-    //exit(0);
-
+    // get the number of iteration to do. Set to __LONG_LONG_MAX__ to be able to see the optimization
     long long nb_iter = __LONG_LONG_MAX__;
 
-    if(argc > 1) {
-        nb_iter = atoi(argv[1]);
-    }
-
     clock_t start, stop;
-    //float data_time_taken[nb_iter];
 
+    // the main loop
     for(long long i = 0; i < nb_iter; i++) {
         start = clock();
-        //for(int j = 0; j < 10000; j++)
         answer();
         stop = clock();
         float time_taken = ((float)stop - (float)start) / CLOCKS_PER_SEC;
-        //data_time_taken[i] = time_taken;
-        //printf("Time taken: %f\n", data_time_taken[i]);
         printf("Time taken: %f\n", time_taken);
     }
-    // write in csv: TODO latter
     
-
     return 0;
 }

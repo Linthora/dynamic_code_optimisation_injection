@@ -17,14 +17,16 @@ long get_addr(char* path, char* function_name);
 int find_pid(char* name);
 
 // challenge 1
-int challenge1(char * prog_name, char * function_name);
+void challenge1(char * prog_name, char * function_name);
 
 
 // challenge 2
-int challenge2(char * prog_name, char * function_name);
+void challenge2(char * prog_name, char * function_name);
 
-int challenge3(char *prog_name, char *function_name);
+// challenge 3 et 4
+void challenge3(char *prog_name, char *function_name);
 
+// main
 int main(int argc, char *argv[]) {
  
     // prog_name is given in argument
@@ -36,78 +38,79 @@ int main(int argc, char *argv[]) {
 
     char * prog_name = argv[1];
 
-    //challenge1(prog_name, function_name);
+    // char * function_name = "exponentiation_long_long";
+    // challenge1(prog_name, function_name);
 
-    // char * function_name = "answer";
-    // challenge2(prog_name, function_name);
+    char * function_name = "answer";
+    challenge2(prog_name, function_name);
     
-    char * function_name = "exponentiation_long_long";
-    challenge3(prog_name, function_name);
+    //char * function_name = "exponentiation_long_long";
+    //challenge3(prog_name, function_name);
 }
 
 // étape 1, faire un trap dans le processus fils
 // dans /proc -> ya un "faux" fichier qui contient la mémoire, qu'on a le droit de read or write si on est attaché
 // sinon ya TXT  mais moins bien car c'est par mots
 
+/**
+ * Function used to get the address of given function in the given elf file
+*/
 long get_addr(char* path, char* function_name) {
-    char* cmd = malloc(1000);
-    //sprintf(cmd, "objdump -t %s | grep %s | awk '{print $1}' > tmp~", path, function_name); 
-    sprintf(cmd, "nm %s | grep %s | awk '{print $1}' > tmp~", path, function_name); 
+    // First, we make the command to get the address of the function
+    char cmd[1000];
+
+    sprintf(cmd, "nm %s | grep %s | awk '{print $1}'", path, function_name); 
     printf("cmd: %s\n", cmd);
-    system(cmd);
 
-    free(cmd);
-
-    FILE *fp = fopen("tmp~", "r");
+    // Then, we execute the command and extract the address
+    FILE *fp = popen(cmd, "r");
     if(fp == NULL) {
         printf("Error: cannot open file\n");
         return -1;
     }
 
     char line[100];
-
     fscanf(fp, "%s", line);
-    printf("line: %s\n", line);
-
-    long addr = strtol(line, NULL, 16);
-
-    //long addr;
     fclose(fp);
 
-    // delete the tmp file
-    system("rm tmp~");
-
-    printf("exit get_addr\n");
+    long addr = strtol(line, NULL, 16);
 
     return addr;
 }
 
+/**
+ * Function used to find the pid of process with given prog_name
+*/
 int find_pid(char* name) {
-    char* cmd = malloc(1000);
-    sprintf(cmd, "ps -aux | grep %s | awk '{print $2}' > tmp~", name);
-    system(cmd);
-    free(cmd);
 
+    char cmd[1000];
+    sprintf(cmd, "ps -aux | grep %s | awk '{print $2}'", name);
+    system(cmd);
+    
     int pid;
 
-    FILE *fp = fopen("tmp~", "r");
+    FILE *fp = popen(cmd, "r");
     if(fp == NULL) {
         printf("Error: cannot open file\n");
         return -1;
     }
     fscanf(fp, "%i", &pid);
-
     fclose(fp);
-    system("rm tmp~");
 
     return pid;
 }
 
-
-int challenge1(char * prog_name, char * function_name) {
+/**
+ * Challenge 1: put a trap instruction at the beginning of a given function
+*/
+void challenge1(char * prog_name, char * function_name) {
+    // we retrieve the pid
     int pid = find_pid(prog_name);
 
+    // we assume that the program is located here
     char * prog_where = "../build/prog_to_run";
+
+    // we retrieve the address of the given function
     long addr = get_addr(prog_where, function_name);
 
     printf("pid: %i\n", pid);
@@ -115,128 +118,139 @@ int challenge1(char * prog_name, char * function_name) {
 
     long result;
 
+    // We attach to the process (and make sure it works with assert)
     result = ptrace(PTRACE_ATTACH, pid, NULL, NULL);
     assert(result == 0);
 
+    // We wait for the process to stop
     int status;
     result = waitpid(pid, &status, 0);
     printf("status: %i\n", status);
     assert(result == pid);
 
-    char * path = malloc(100);
+    // Now, we need to access the memory of the process
+    char path[100];
     sprintf(path, "/proc/%i/mem", pid);
 
     printf("path: %s\n", path);
 
+    // We access the memory of the process
     FILE *fp = fopen(path, "a+");
-
     if(fp == NULL) {
         printf("Error: cannot open file\n");
         return -1;
     }
 
-    // put a stop instruction at the address addr
-
+    // We go to the address of the function
     fseek(fp, addr, SEEK_SET);
 
-    printf("before write\n");
+    // The trap instruction is 0xCC
+    char trap[] = { 0xCC };
 
-    int instr = 0xCC;
-
-    fwrite( (void *) &instr, 1, sizeof(int), fp);
-
-    printf("after write\n");
-
+    // Now, we write the trap instruction
+    fwrite( trap, 1, sizeof(trap), fp);
     fclose(fp);
 
-    // enter to continue
-    printf("Press enter to continue\n");
-    getchar();
-
+    // We resume the process
     result = ptrace(PTRACE_CONT, pid, NULL, NULL);
-    // assert(result == 0);
+    assert(result == 0);
 
-    ptrace(PTRACE_DETACH, pid, NULL, NULL);
+    // Then we detach
+    result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
 
-    free(path);
-
-    return EXIT_SUCCESS;
 }
 
-
-
-// CHALLENGE 2
-int challenge2(char * prog_name, char * function_name) {
+/**
+ * Challenge 2: call a function after trapping our program somewhere
+*/
+void challenge2(char * prog_name, char * function_name) {
     int pid = find_pid(prog_name);
 
     char * prog_where = "../build/prog_to_run";
+    
+    // now, we get the address of the function to call (foo)
     long addr_foo = get_addr(prog_where, "foo");
+
     long addr = get_addr(prog_where, function_name);
     printf("addr_foo: %lx\n", addr_foo);
     printf("addr of %s: %lx\n", function_name, addr);
-
     printf("pid: %i\n", pid);
-    printf("addr: %lx\n", addr); 
 
     long result;
 
     result = ptrace(PTRACE_ATTACH, pid, NULL, NULL);
     assert(result == 0);
 
-    printf("attached\n");
-    //printf("Press enter to continue\n");
-    getchar();
-
     int status;
     result = waitpid(pid, &status, 0);
     printf("status: %i\n", status);
     assert(result == pid);
 
-    char * path = malloc(100);
+    printf("attached and stopped\n");
+
+    char path[100];
     sprintf(path, "/proc/%i/mem", pid);
 
     printf("path: %s\n", path);
 
-    FILE *fp = fopen(path, "a+");
-
+    FILE *fp = fopen(path, "rw+");
     if(fp == NULL) {
         printf("Error: cannot open file\n");
         return -1;
     }
 
-    printf("before write\n");
-    fseek(fp, addr, SEEK_SET);
+    printf("before writing the trap call trap\n");
 
-    // foo is int foo(int * i)
+    // foo is of type (int foo(int * i))
 
-    // byte array
-    unsigned char intr[] = { 0xCC, // trap
+    // byte array containing the instructions to write
+    unsigned char instr[] = { 0xCC, // trap
                     0xFF, 0xD0, // call %eax
                     0xCC // trap
                     };
-    fwrite( (void *) intr, 1, sizeof(intr), fp);
-    printf("size of intr: %lu\n", sizeof(intr));
-    printf("after write\n");
+    
+    unsigned char * save_instr = malloc(sizeof(instr));
+
+    // save the instructions
+    fseek(fp, addr, SEEK_SET);
+    fread(save_instr, 1, sizeof(instr), fp);
     fflush(fp);
+        
+    // write the instructions
+    fseek(fp, addr, SEEK_SET);
+    fwrite( (void *) instr, 1, sizeof(instr), fp);
+    fflush(fp);
+    printf("size of instr: %lu\n", sizeof(instr));
+    printf("after write\n");
     fclose(fp);
 
+
+    printf("Press enter to continue (after writing the trap call trap)\n");
+    getchar();
+    
     // resume
     result = ptrace(PTRACE_CONT, pid, NULL, NULL);
     assert(result == 0);
 
-    // wait for the trap
+    printf("resumed and waiting for the 1st trap\n");
+    // wait for the trap (first trap) 
     result = waitpid(pid, &status, 0);
     printf("status: %i\n", status);
     assert(result == pid);
 
+
+
     // Get the current register values
     struct user_regs_struct regs;
-
+    struct user_regs_struct original_regs;
     result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+    assert(result == 0);
+    result = ptrace(PTRACE_GETREGS, pid, NULL, &original_regs);
+    assert(result == 0);
 
-    // save the current eax
-    long original_eax = regs.rax;
-    long original_rdi = regs.rdi;
+    // // save the current eax
+    // long original_eax = regs.rax;
+    // long original_rdi = regs.rdi;
 
     // put addr_foo in eax
     regs.rax = addr_foo;
@@ -271,36 +285,47 @@ int challenge2(char * prog_name, char * function_name) {
     // wait for the trap
     result = waitpid(pid, &status, 0);
     printf("status: %i\n", status);
-
     assert(result == pid);
 
     printf("Press enter to continue (second trap)\n");
     getchar();
 
+    // Now, we check that the value of the argument was indeed changed
+    // and that the return value is correct
+    // Then, we restore the original registers and instructions
+
     // Get the current register values
     result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
     printf("rax: %lli\n", regs.rax);
+    assert(regs.rax == 10); // with arg = 6
 
     // get the value of the argument
     int value_arg;
-    fp = fopen(path, "a+");
+    fp = fopen(path, "rw+");
     fseek(fp, regs.rsp, SEEK_SET);
     fread(&value_arg, sizeof(int), 1, fp);
     fflush(fp);
 
     printf("value_arg: %i\n", value_arg);
-    fclose(fp);
+    assert(value_arg == 666); // no matter the value of arg
 
+    // Pause, before restoring the registers
+    // Usefull to see the actual call of foo
     printf("Press enter to continue (after print)\n");
     getchar();
 
-    // restore the eax register
-    regs.rax = original_eax;
-    regs.rdi = original_rdi;
-    regs.rsp += sizeof(int);
 
-    // Set the new register values
-    result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
+    // restore the instructions
+    fseek(fp, addr, SEEK_SET);
+    fwrite(save_instr, 1, sizeof(instr), fp);
+    fflush(fp);
+    fclose(fp);
+
+    free(save_instr);
+
+    // Restore the register
+    original_regs.rip = addr;
+    result = ptrace(PTRACE_SETREGS, pid, NULL, &original_regs);
     assert(result == 0);
 
     // resume
@@ -310,17 +335,6 @@ int challenge2(char * prog_name, char * function_name) {
 
     // Détacher le processus tracé
     result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
-    assert(result == 0);   
-
-    free(path);
-
-    // press enter to continue
-    printf("Press enter to continue\n");
-    getchar();
-
-    // could try to save and restore the registers but not asked for this challenge
-
-    return EXIT_SUCCESS;
 }
 
 /**
@@ -328,19 +342,19 @@ int challenge2(char * prog_name, char * function_name) {
 */
 
 // Challenge 3 - Code Cache
-int challenge3(char *prog_name, char *function_name) {
+void challenge3(char *prog_name, char *function_name) {
     // code of the function to optimise
-    /* unsigned char code[] = {
-          0xf3, 0x0f, 0x1e, 0xfa, 0x55, 0x48, 0x89, 0xe5, 0x48, 0x83, 0xec, 0x20, 0x48, 0x89, 0x7d, 0xe8, 0x48, 0x89, 0x75, 0xe0
+    unsigned char code[] = {
+          0x55, 0x48, 0x89, 0xe5, 0x48, 0x83, 0xec, 0x20, 0x48, 0x89, 0x7d, 0xe8, 0x48, 0x89, 0x75, 0xe0
         , 0x48, 0x83, 0x7d, 0xe0, 0x00, 0x79, 0x18, 0x48, 0x8d, 0x05, 0x00, 0x00, 0x00, 0x00, 0x48, 0x89, 0xc7, 0xe8, 0x00, 0x00, 0x00, 0x00
         , 0x48, 0xc7, 0xc0, 0xff, 0xff, 0xff, 0xff, 0xeb, 0x5c, 0x48, 0xc7, 0x45, 0xf8, 0x01, 0x00, 0x00, 0x00, 0xeb, 0x47
         , 0x48, 0x8b, 0x45, 0xe0, 0x48, 0x99, 0x48, 0xc1, 0xea, 0x3f, 0x48, 0x01, 0xd0, 0x83, 0xe0, 0x01, 0x48, 0x29, 0xd0, 0x48, 0x83, 0xf8, 0x01         
         , 0x75, 0x0d, 0x48, 0x8b, 0x45, 0xf8, 0x48, 0x0f, 0xaf, 0x45, 0xe8, 0x48, 0x89, 0x45, 0xf8, 0x48, 0x8b, 0x45, 0xe8, 0x48, 0x0f, 0xaf, 0xc0          	
         , 0x48, 0x89, 0x45, 0xe8, 0x48, 0x8b, 0x45, 0xe0, 0x48, 0x89, 0xc2, 0x48, 0xc1, 0xea, 0x3f, 0x48, 0x01, 0xd0, 0x48, 0xd1, 0xf8             	
         , 0x48, 0x89, 0x45, 0xe0, 0x48, 0x83, 0x7d, 0xe0, 0x00, 0x7f, 0xb2, 0x48, 0x8b, 0x45, 0xf8, 0xc9, 0xc3
-    }; */
+    };
 
-    unsigned char code[] = {
+    /* unsigned char code[] = {
     	0x55,
         0x48, 0x89, 0xe5,
         0x89, 0x7d, 0xec,
@@ -352,7 +366,7 @@ int challenge3(char *prog_name, char *function_name) {
         0x8b, 0x45, 0xfc,     
         0x5d,
     	0xc3,
-    };
+    }; */
 
 
     printf("prog_name: %s\n", prog_name);
@@ -367,7 +381,7 @@ int challenge3(char *prog_name, char *function_name) {
 
     char * prog_where = "../build/prog_to_run";
     long addr = get_addr(prog_where, function_name);
-    addr += 4;
+    addr += 4; // + 4 because of the endr instruction
     printf("addr of %s: %lx\n", function_name, addr);
     printf("pid: %i\n", pid);
 
@@ -812,6 +826,4 @@ int challenge3(char *prog_name, char *function_name) {
     // detach
     result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
     assert(result == 0);
-
-    return 0;
 }
