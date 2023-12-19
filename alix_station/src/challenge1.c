@@ -24,7 +24,7 @@ void challenge1(char * prog_name, char * function_name);
 void challenge2(char * prog_name, char * function_name);
 
 // challenge 3 et 4
-void challenge3(char *prog_name, char *function_name);
+void challenge3_4(char *prog_name, char *function_name);
 
 // main
 int main(int argc, char *argv[]) {
@@ -41,16 +41,18 @@ int main(int argc, char *argv[]) {
     // char * function_name = "exponentiation_long_long";
     // challenge1(prog_name, function_name);
 
-    char * function_name = "answer";
-    challenge2(prog_name, function_name);
+    // char * function_name = "answer";
+    // challenge2(prog_name, function_name);
     
-    //char * function_name = "exponentiation_long_long";
-    //challenge3(prog_name, function_name);
+    char * function_name = "exponentiation_long_long";
+    challenge3_4(prog_name, function_name);
 }
 
-// étape 1, faire un trap dans le processus fils
-// dans /proc -> ya un "faux" fichier qui contient la mémoire, qu'on a le droit de read or write si on est attaché
-// sinon ya TXT  mais moins bien car c'est par mots
+/**
+ * --------------------------------------
+ * The definitions of the functions used
+ * --------------------------------------
+*/
 
 /**
  * Function used to get the address of given function in the given elf file
@@ -145,10 +147,10 @@ void challenge1(char * prog_name, char * function_name) {
     fseek(fp, addr, SEEK_SET);
 
     // The trap instruction is 0xCC
-    char trap[] = { 0xCC };
+    char trap = 0xCC;
 
     // Now, we write the trap instruction
-    fwrite( trap, 1, sizeof(trap), fp);
+    fwrite( &trap, 1, 1, fp);
     fclose(fp);
 
     // We resume the process
@@ -161,7 +163,11 @@ void challenge1(char * prog_name, char * function_name) {
 }
 
 /**
- * Challenge 2: call a function after trapping our program somewhere
+ * Challenge 2: call a function after trapping our program somewhere. And allow to resume the execution after like nothing happened.
+ * 
+ * It is to be noted that, unlike in challenge 3/4, we didn't write a trap alone
+ * before writing the call trap to avoid problems with the execution of the program.
+ * However, it very unlikely to happen and didn't happened any time we tested challenge 2. (And we fixed it in challenge 3/4)
 */
 void challenge2(char * prog_name, char * function_name) {
     int pid = find_pid(prog_name);
@@ -199,8 +205,6 @@ void challenge2(char * prog_name, char * function_name) {
         return -1;
     }
 
-    printf("before writing the trap call trap\n");
-
     // foo is of type (int foo(int * i))
 
     // byte array containing the instructions to write
@@ -208,7 +212,8 @@ void challenge2(char * prog_name, char * function_name) {
                     0xFF, 0xD0, // call %eax
                     0xCC // trap
                     };
-    
+
+    // byte array containing instruction that will be overwritten    
     unsigned char * save_instr = malloc(sizeof(instr));
 
     // save the instructions
@@ -220,15 +225,13 @@ void challenge2(char * prog_name, char * function_name) {
     fseek(fp, addr, SEEK_SET);
     fwrite( (void *) instr, 1, sizeof(instr), fp);
     fflush(fp);
-    printf("size of instr: %lu\n", sizeof(instr));
-    printf("after write\n");
+
     fclose(fp);
-
-
+    
+    // resuming after writing the trap call trap
     printf("Press enter to continue (after writing the trap call trap)\n");
     getchar();
-    
-    // resume
+
     result = ptrace(PTRACE_CONT, pid, NULL, NULL);
     assert(result == 0);
 
@@ -238,34 +241,34 @@ void challenge2(char * prog_name, char * function_name) {
     printf("status: %i\n", status);
     assert(result == pid);
 
-
+    // First trap caught
 
     // Get the current register values
     struct user_regs_struct regs;
-    struct user_regs_struct original_regs;
+    struct user_regs_struct original_regs; // used to restore the registers later
     result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
     assert(result == 0);
     result = ptrace(PTRACE_GETREGS, pid, NULL, &original_regs);
     assert(result == 0);
 
-    // // save the current eax
-    // long original_eax = regs.rax;
-    // long original_rdi = regs.rdi;
-
-    // put addr_foo in eax
+    // put addr_foo in eax for the call %eax instruction
     regs.rax = addr_foo;
 
-    fp = fopen(path, "a+");
+    // Now, we need to write the argument of foo in the stack
+    // And then passe the address of the argument to rdi
+    
+    int arg = 6;
 
+    // make space on the stack for the argument
+    regs.rsp -= sizeof(int);
+    
+    fp = fopen(path, "a+");
     if(fp == NULL) {
         printf("Error: cannot open file\n");
         return -1;
     }
 
-    int arg = 6;
-    regs.rsp -= sizeof(int);
-
-    // Write the argument value to the target process memory
+    // Write the argument value to the target process stack
     fseek(fp, regs.rsp, SEEK_SET);
     fwrite((void *)&arg, sizeof(int), 1, fp);
     fflush(fp);
@@ -286,9 +289,6 @@ void challenge2(char * prog_name, char * function_name) {
     result = waitpid(pid, &status, 0);
     printf("status: %i\n", status);
     assert(result == pid);
-
-    printf("Press enter to continue (second trap)\n");
-    getchar();
 
     // Now, we check that the value of the argument was indeed changed
     // and that the return value is correct
@@ -314,7 +314,6 @@ void challenge2(char * prog_name, char * function_name) {
     printf("Press enter to continue (after print)\n");
     getchar();
 
-
     // restore the instructions
     fseek(fp, addr, SEEK_SET);
     fwrite(save_instr, 1, sizeof(instr), fp);
@@ -323,8 +322,12 @@ void challenge2(char * prog_name, char * function_name) {
 
     free(save_instr);
 
-    // Restore the register
+    // Restore the register to the original values with the according rip (because of the first trap)
     original_regs.rip = addr;
+
+    // note: if we didn't save the registers, we should also have restored the stack pointer
+    // but we don't need to do it since the stack pointer is restored with the registers
+
     result = ptrace(PTRACE_SETREGS, pid, NULL, &original_regs);
     assert(result == 0);
 
@@ -338,14 +341,18 @@ void challenge2(char * prog_name, char * function_name) {
 }
 
 /**
- * Challenge 3
+ * Challenge 3 and 4: replace, or more precisely redirect, a function with another one.
+ * 
+ * Here, it will be the function exponentiation_long_long with fast_exponentiation_long_long.
+ * 
+ * Note that we ensure at each step that the called system calls are successful with assert.
 */
-
-// Challenge 3 - Code Cache
-void challenge3(char *prog_name, char *function_name) {
+void challenge3_4(char *prog_name, char *function_name) {
+    
     // code of the function to optimise
+    // consists of the byte array of the instructions of the function in function_optimized.c
     unsigned char code[] = {
-          0x55, 0x48, 0x89, 0xe5, 0x48, 0x83, 0xec, 0x20, 0x48, 0x89, 0x7d, 0xe8, 0x48, 0x89, 0x75, 0xe0
+          0xf3, 0x0f, 0x1e, 0xfa, 0x55, 0x48, 0x89, 0xe5, 0x48, 0x83, 0xec, 0x20, 0x48, 0x89, 0x7d, 0xe8, 0x48, 0x89, 0x75, 0xe0
         , 0x48, 0x83, 0x7d, 0xe0, 0x00, 0x79, 0x18, 0x48, 0x8d, 0x05, 0x00, 0x00, 0x00, 0x00, 0x48, 0x89, 0xc7, 0xe8, 0x00, 0x00, 0x00, 0x00
         , 0x48, 0xc7, 0xc0, 0xff, 0xff, 0xff, 0xff, 0xeb, 0x5c, 0x48, 0xc7, 0x45, 0xf8, 0x01, 0x00, 0x00, 0x00, 0xeb, 0x47
         , 0x48, 0x8b, 0x45, 0xe0, 0x48, 0x99, 0x48, 0xc1, 0xea, 0x3f, 0x48, 0x01, 0xd0, 0x83, 0xe0, 0x01, 0x48, 0x29, 0xd0, 0x48, 0x83, 0xf8, 0x01         
@@ -354,39 +361,24 @@ void challenge3(char *prog_name, char *function_name) {
         , 0x48, 0x89, 0x45, 0xe0, 0x48, 0x83, 0x7d, 0xe0, 0x00, 0x7f, 0xb2, 0x48, 0x8b, 0x45, 0xf8, 0xc9, 0xc3
     };
 
-    /* unsigned char code[] = {
-    	0x55,
-        0x48, 0x89, 0xe5,
-        0x89, 0x7d, 0xec,
-        0x89, 0x75, 0xe8,
-        0x8b, 0x55, 0xec,
-        0x8b, 0x45, 0xe8,
-        0x01, 0xd0,        
-        0x89, 0x45, 0xfc,     
-        0x8b, 0x45, 0xfc,     
-        0x5d,
-    	0xc3,
-    }; */
-
-
     printf("prog_name: %s\n", prog_name);
     printf("function_name: %s\n", function_name);
-
     printf("size of code: %lu\n", sizeof(code));
 
+    // find the pid of the process to optimize
     int pid = find_pid(prog_name);
-
     printf("pid: %i\n", pid);
 
-
+    // get the address of the function to optimize
     char * prog_where = "../build/prog_to_run";
     long addr = get_addr(prog_where, function_name);
-    addr += 4; // + 4 because of the endr instruction
+
     printf("addr of %s: %lx\n", function_name, addr);
     printf("pid: %i\n", pid);
 
     long result;
 
+    // attach to the process
     result = ptrace(PTRACE_ATTACH, pid, NULL, NULL);
     assert(result == 0);
 
@@ -397,24 +389,8 @@ void challenge3(char *prog_name, char *function_name) {
 
     printf("attached and stopped\n");
 
-    printf("Press enter to continue\n");
-    getchar();
-
-
     char * path = malloc(100);
     sprintf(path, "/proc/%i/mem", pid);
-
-    printf("path: %s\n", path);
-    FILE *fp = fopen(path, "w+");
-
-    if(fp == NULL) {
-        printf("Error: cannot open file\n");
-        return -1;
-    }
-
-    // printf("before writing the first trap\n");
-    // printf("press enter to continue\n");
-    // getchar();
 
     /**
      *  We now write only 1 trap instruction at the address addr.
@@ -423,16 +399,23 @@ void challenge3(char *prog_name, char *function_name) {
      *  we want to overwrite constantly, we would risk resuming the execution in the middle of the newly written instructions
      *  and cause problems. (for example, stopping on the second trap and not the first one) 
      */
+    printf("path: %s\n", path);
+    FILE *fp = fopen(path, "rw+");
+
+    if(fp == NULL) {
+        printf("Error: cannot open file\n");
+        return -1;
+    }
 
     unsigned char trap = 0xCC;
-    // unsigned char * save_1st_trap = malloc(sizeof(trap));
+    unsigned char * save_1st_trap = malloc(sizeof(trap));
     // save 
-    // fseek(fp, addr, SEEK_SET);
-    // fread(save_1st_trap, 1, sizeof(trap), fp);
-    // fflush(fp);
+    fseek(fp, addr, SEEK_SET);
+    fread(save_1st_trap, 1, sizeof(trap), fp);
+    fflush(fp);
     // write
     fseek(fp, addr, SEEK_SET);
-    fwrite(&trap, 1, sizeof(trap), fp);
+    fwrite(&trap, 1, 1, fp);
     fflush(fp);
     fclose(fp);
 
@@ -823,6 +806,7 @@ void challenge3(char *prog_name, char *function_name) {
     getchar();
 
     free(path);
+    free(save_1st_trap);
     // detach
     result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
     assert(result == 0);
