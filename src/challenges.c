@@ -588,7 +588,7 @@ int challenge3_4(char *prog_name, char *function_name) {
     // give the correct arguments to mprotect
     regs.rdi = addr_pointer;
     regs.rsi = sizeof(code);
-    regs.rdx = PROT_WRITE | PROT_EXEC;
+    regs.rdx = PROT_EXEC;
     regs.rax = addr_mprotect;
 
     // set the new register values
