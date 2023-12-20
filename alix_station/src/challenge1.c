@@ -17,14 +17,14 @@ long get_addr(char* path, char* function_name);
 int find_pid(char* name);
 
 // challenge 1
-void challenge1(char * prog_name, char * function_name);
+int challenge1(char * prog_name, char * function_name);
 
 
 // challenge 2
-void challenge2(char * prog_name, char * function_name);
+int challenge2(char * prog_name, char * function_name);
 
 // challenge 3 et 4
-void challenge3_4(char *prog_name, char *function_name);
+int challenge3_4(char *prog_name, char *function_name);
 
 // main
 int main(int argc, char *argv[]) {
@@ -39,13 +39,13 @@ int main(int argc, char *argv[]) {
     char * prog_name = argv[1];
 
     // char * function_name = "exponentiation_long_long";
-    // challenge1(prog_name, function_name);
+    // return challenge1(prog_name, function_name);
 
     // char * function_name = "answer";
-    // challenge2(prog_name, function_name);
+    // return challenge2(prog_name, function_name);
     
     char * function_name = "exponentiation_long_long";
-    challenge3_4(prog_name, function_name);
+    return challenge3_4(prog_name, function_name);
 }
 
 /**
@@ -73,7 +73,7 @@ long get_addr(char* path, char* function_name) {
 
     char line[100];
     fscanf(fp, "%s", line);
-    fclose(fp);
+    pclose(fp);
 
     long addr = strtol(line, NULL, 16);
 
@@ -97,7 +97,7 @@ int find_pid(char* name) {
         return -1;
     }
     fscanf(fp, "%i", &pid);
-    fclose(fp);
+    pclose(fp);
 
     return pid;
 }
@@ -105,7 +105,7 @@ int find_pid(char* name) {
 /**
  * Challenge 1: put a trap instruction at the beginning of a given function
 */
-void challenge1(char * prog_name, char * function_name) {
+int challenge1(char * prog_name, char * function_name) {
     // we retrieve the pid
     int pid = find_pid(prog_name);
 
@@ -147,19 +147,21 @@ void challenge1(char * prog_name, char * function_name) {
     fseek(fp, addr, SEEK_SET);
 
     // The trap instruction is 0xCC
-    char trap = 0xCC;
+    int trap = 0xCC;
 
     // Now, we write the trap instruction
-    fwrite( &trap, 1, 1, fp);
+    fwrite( (void *) &trap, 1, 1, fp);
     fclose(fp);
 
-    // We resume the process
-    result = ptrace(PTRACE_CONT, pid, NULL, NULL);
-    assert(result == 0);
+    // We resume the process and detach
+    // result = ptrace(PTRACE_CONT, pid, NULL, NULL);
+    // assert(result == 0);
 
     // Then we detach
     result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
+    assert(result == 0);
 
+    return 0;
 }
 
 /**
@@ -169,7 +171,7 @@ void challenge1(char * prog_name, char * function_name) {
  * before writing the call trap to avoid problems with the execution of the program.
  * However, it very unlikely to happen and didn't happened any time we tested challenge 2. (And we fixed it in challenge 3/4)
 */
-void challenge2(char * prog_name, char * function_name) {
+int challenge2(char * prog_name, char * function_name) {
     int pid = find_pid(prog_name);
 
     char * prog_where = "../build/prog_to_run";
@@ -331,13 +333,12 @@ void challenge2(char * prog_name, char * function_name) {
     result = ptrace(PTRACE_SETREGS, pid, NULL, &original_regs);
     assert(result == 0);
 
-    // resume
-    result = ptrace(PTRACE_CONT, pid, NULL, NULL);
+    // resume and detach
+    result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
     assert(result == 0);
     printf("resumed\n");
 
-    // Détacher le processus tracé
-    result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
+    return 0;
 }
 
 /**
@@ -347,7 +348,7 @@ void challenge2(char * prog_name, char * function_name) {
  * 
  * Note that we ensure at each step that the called system calls are successful with assert.
 */
-void challenge3_4(char *prog_name, char *function_name) {
+int challenge3_4(char *prog_name, char *function_name) {
     
     // code of the function to optimise
     // consists of the byte array of the instructions of the function in function_optimized.c
@@ -408,7 +409,8 @@ void challenge3_4(char *prog_name, char *function_name) {
     }
 
     unsigned char trap = 0xCC;
-    unsigned char * save_1st_trap = malloc(sizeof(trap));
+    unsigned char * save_1st_trap = malloc(sizeof(trap)); // This is useless, because this part is going to be overwritten by the trampoline anyway, but to train and good practice
+
     // save 
     fseek(fp, addr, SEEK_SET);
     fread(save_1st_trap, 1, sizeof(trap), fp);
@@ -419,10 +421,6 @@ void challenge3_4(char *prog_name, char *function_name) {
     fflush(fp);
     fclose(fp);
 
-    printf("after writing the first trap\n");
-    printf("press enter to continue (resume)\n");
-    getchar();
-
     // resume
     result = ptrace(PTRACE_CONT, pid, NULL, NULL);
     assert(result == 0);
@@ -431,7 +429,6 @@ void challenge3_4(char *prog_name, char *function_name) {
     result = waitpid(pid, &status, 0);
     printf("status: %i\n", status);
     assert(result == pid);
-
 
     // Trap 1 caught
 
@@ -515,10 +512,10 @@ void challenge3_4(char *prog_name, char *function_name) {
     assert(result == 0);
 
     size_t page_size = regs.rax; // on my computer, it is 4096
-    printf("page_size: %i\n", page_size); 
+    printf("page_size: %li\n", page_size); 
 
     size_t code_size = sizeof(code);
-    printf("code_size: %i\n", code_size);
+    printf("code_size: %li\n", code_size);
 
     // we need to make space on the stack for the pointer to pass to memalign
     regs.rsp -= sizeof(void *);
@@ -562,13 +559,12 @@ void challenge3_4(char *prog_name, char *function_name) {
     assert(regs.rax == 0);
 
     // get the address of the pointer on the stack
-    void * addr_pointer;
+    long long unsigned int addr_pointer;
 
     fseek(fp, regs.rsp, SEEK_SET);
     fread(&addr_pointer, 1, sizeof(addr_pointer), fp);
     fflush(fp);
 
-    printf("addr_pointer: %p\n", addr_pointer);
     printf("addr_pointer: %lld\n", addr_pointer);
 
     fclose(fp);
@@ -576,7 +572,7 @@ void challenge3_4(char *prog_name, char *function_name) {
     // give the correct arguments to mprotect
     regs.rdi = addr_pointer;
     regs.rsi = sizeof(code);
-    regs.rdx = PROT_READ | PROT_WRITE | PROT_EXEC;
+    regs.rdx = PROT_WRITE | PROT_EXEC;
     regs.rax = addr_mprotect;
 
     // set the new register values
@@ -638,82 +634,28 @@ void challenge3_4(char *prog_name, char *function_name) {
         0xff, 0xe0
     };
 
-    /// HEEEEEEEEERE
-
+    // write the end of the jump
     fwrite(end_jump, 1, 2, fp);
     fflush(fp);
 
     fclose(fp);
 
-    printf("Press enter to resume after writing the jump\n");
-    getchar();
-
-    // change the original registers to directly resume on the jump
-    //assert(original_regs.rip == addr + 1);
-    // original_regs.rip = addr;
-
-    // set the new register values
-    // result = ptrace(PTRACE_SETREGS, pid, NULL, &original_regs);
-    // assert(result == 0);
-
-    // resume but rip is pointing to the jump
-
-
-    
+    // set the original registers with the correct rip pointing at the beginning of the function to optimize
+    // (we have to do it because of the first trap)
     original_regs.rip = addr; 
 
-    // regs.rip = addr_pointer;
-    // regs.rsp += sizeof(void *);
-
-    // set the new register values
-    //result = ptrace(PTRACE_SETREGS, pid, NULL, &regs);
+    // set the new (original updated) register values
     result = ptrace(PTRACE_SETREGS, pid, NULL, &original_regs);
     assert(result == 0);
 
-    printf("regs set\n");
-    printf("Press enter to resume after setting the registers\n");
-    getchar();
-
-    // resume
-    printf("Press enter to resume after writing the jump\n");
-    getchar();
-    result = ptrace(PTRACE_CONT, pid, NULL, NULL);
-    assert(result == 0);
-    
-    // free the memory
-    // free(save_instructions);
-    // free(save_1st_trap);
-
-    // result = waitpid(pid, &status, 0);
-    // printf("status: %i\n", status);
-    // assert(result == pid);
-
-    // see what the signal is
-    printf("signal: %i\n", WSTOPSIG(status));
-
-
-    // get the registers
-    result = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-    assert(result == 0);
-
-    printf("rax: %lli\n", regs.rax);
-    printf("rdi: %lli\n", regs.rdi);
-    printf("rsp: %lli\n", regs.rsp);
-    printf("rip: %lli\n", regs.rip);
-
-    // print original_regs
-    printf("original_regs.rax: %lli\n", original_regs.rax);
-    printf("original_regs.rdi: %lli\n", original_regs.rdi);
-    printf("original_regs.rsp: %lli\n", original_regs.rsp);
-    printf("original_regs.rip: %lli\n", original_regs.rip);
-
-    printf("frees done\n");
-    printf("Press enter to detach\n");
-    getchar();
-
-    free(path);
-    free(save_1st_trap);
-    // detach
+    // resume and detach
     result = ptrace(PTRACE_DETACH, pid, NULL, NULL);
     assert(result == 0);
+
+    // free the memory
+    free(path);
+    free(save_1st_trap);
+    free(save_instructions);
+
+    return 0;
 }
