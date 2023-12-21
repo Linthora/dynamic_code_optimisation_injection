@@ -1,8 +1,5 @@
 # Codename-Plage: TP SEA - USER MODE
 
-Alix DANVY
-Adrien DECOSSE
-
 Pour ce projet, nous avons terminé les challenges 1, 2, 3 et 4.
 
 Le code source du processus tracé se trouve dans le fichier src/prog.c:
